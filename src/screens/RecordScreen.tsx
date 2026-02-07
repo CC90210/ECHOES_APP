@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, Platform, Animated, Alert } from 'react-native';
 import { Audio } from 'expo-av';
 import { Button } from '../components/Button';
 import { colors } from '../theme/colors';
-import { api, Question } from '../services/api';
-import { Feather } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function RecordScreen({ route, navigation }: any) {
+    const { user } = useAuth();
     const { question } = route.params || { question: { text: "What's on your mind today?" } };
     const [recording, setRecording] = useState<Audio.Recording | null>(null);
     const [permissionResponse, requestPermission] = Audio.usePermissions();
     const [duration, setDuration] = useState(0);
-    const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'review'>('idle');
+    const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'review' | 'uploading'>('idle');
     const [uri, setUri] = useState<string | null>(null);
 
     useEffect(() => {
@@ -45,6 +46,7 @@ export default function RecordScreen({ route, navigation }: any) {
             setDuration(0);
         } catch (err) {
             console.error('Failed to start recording', err);
+            Alert.alert('Error', 'Could not start recording.');
         }
     }
 
@@ -57,9 +59,52 @@ export default function RecordScreen({ route, navigation }: any) {
     }
 
     async function saveEcho() {
-        if (uri) {
-            await api.echoes.create(uri, question.text, duration);
+        if (!uri || !user) return;
+
+        setRecordingStatus('uploading');
+        try {
+            // 1. Upload logic (Simulated here because we need Polyfill for Blob/File on RN)
+            // In a real device, we use FormData or FileSystem.readAsStringAsync(uri, { encoding: 'base64' })
+            // For this MVP, we will try standard FormData upload
+
+            const filename = `${user.id}/${Date.now()}.m4a`;
+            const formData = new FormData();
+            formData.append('file', {
+                uri,
+                name: 'audio.m4a',
+                type: 'audio/m4a',
+            } as any);
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('echoes-audio')
+                .upload(filename, formData, {
+                    contentType: 'audio/m4a',
+                });
+
+            if (uploadError) throw uploadError;
+
+            // 2. Create DB Record
+            const { error: dbError } = await supabase
+                .from('echoes')
+                .insert({
+                    user_id: user.id,
+                    question_id: question.id, // Ensure question has ID
+                    question_text: question.question_text || question.text,
+                    audio_url: uploadData.path,
+                    duration_seconds: duration,
+                    is_locked: false, // For MVP, default unlocked
+                    unlock_type: 'immediate',
+                });
+
+            if (dbError) throw dbError;
+
+            Alert.alert('Success', 'Echo saved to your vault.');
             navigation.goBack();
+
+        } catch (error: any) {
+            console.error('Save failed:', error);
+            Alert.alert('Upload Failed', error.message || 'Unknown error');
+            setRecordingStatus('review');
         }
     }
 
@@ -73,7 +118,7 @@ export default function RecordScreen({ route, navigation }: any) {
         <View style={styles.container}>
             <View style={styles.promptContainer}>
                 <Text style={styles.label}>ANSWERING</Text>
-                <Text style={styles.question}>{question.text}</Text>
+                <Text style={styles.question}>{question.question_text || question.text}</Text>
             </View>
 
             <View style={styles.recorderContainer}>
@@ -87,7 +132,7 @@ export default function RecordScreen({ route, navigation }: any) {
                         <Button
                             title="Start Recording"
                             onPress={startRecording}
-                            variant="primary" // Changed to primary for contrast
+                            variant="primary"
                         />
                     )}
 
@@ -112,6 +157,15 @@ export default function RecordScreen({ route, navigation }: any) {
                                 variant="outline"
                             />
                         </View>
+                    )}
+
+                    {recordingStatus === 'uploading' && (
+                        <Button
+                            title="Uploading..."
+                            onPress={() => { }}
+                            loading={true}
+                            disabled={true}
+                        />
                     )}
                 </View>
             </View>
@@ -167,7 +221,7 @@ const styles = StyleSheet.create({
     activeVisualizer: {
         borderColor: colors.error,
         borderWidth: 2,
-        backgroundColor: '#FFEBEE', // Light red bg
+        backgroundColor: '#FFEBEE',
     },
     timer: {
         fontSize: 48,

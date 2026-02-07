@@ -1,24 +1,40 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Button } from '../components/Button';
 import { colors } from '../theme/colors';
-import { api } from '../services/api';
+import { supabase } from '../lib/supabase';
 
 export default function LoginScreen({ navigation }: any) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isSignUp, setIsSignUp] = useState(false);
 
-    const handleLogin = async () => {
+    const handleAuth = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter both email and password');
+            return;
+        }
+
         setLoading(true);
         try {
-            await api.auth.login(email, password);
-            // Navigate to Home
-            navigation.replace('Home');
-        } catch (error) {
-            console.error(error);
-            alert('Login failed');
+            if (isSignUp) {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+                Alert.alert('Success', 'Check your email for the confirmation link!');
+            } else {
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+            }
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
@@ -38,6 +54,7 @@ export default function LoginScreen({ navigation }: any) {
                 <TextInput
                     style={styles.input}
                     placeholder="Email"
+                    placeholderTextColor={colors.text.disabled}
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -46,19 +63,24 @@ export default function LoginScreen({ navigation }: any) {
                 <TextInput
                     style={styles.input}
                     placeholder="Password"
+                    placeholderTextColor={colors.text.disabled}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
                 />
 
                 <Button
-                    title="Sign In"
-                    onPress={handleLogin}
+                    title={isSignUp ? "Create Account" : "Sign In"}
+                    onPress={handleAuth}
                     loading={loading}
                 />
 
-                <Text style={styles.footerText}>
-                    Don't have an account? <Text style={styles.link}>Sign Up</Text>
+                <Text
+                    style={styles.footerText}
+                    onPress={() => setIsSignUp(!isSignUp)}
+                >
+                    {isSignUp ? "Already have an account? " : "Don't have an account? "}
+                    <Text style={styles.link}>{isSignUp ? "Sign In" : "Sign Up"}</Text>
                 </Text>
             </View>
             <StatusBar style="dark" />
@@ -101,6 +123,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         borderWidth: 1,
         borderColor: colors.border,
+        color: colors.text.primary,
     },
     footerText: {
         marginTop: 16,

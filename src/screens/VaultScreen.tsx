@@ -1,22 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { colors } from '../theme/colors';
-import { api, Echo } from '../services/api';
 import { Feather } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function VaultScreen() {
-    const [echoes, setEchoes] = useState<Echo[]>([]);
+    const { user } = useAuth();
+    const [echoes, setEchoes] = useState<any[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         loadEchoes();
-    }, []);
+    }, [user]);
 
     const loadEchoes = async () => {
-        const data = await api.echoes.getAll();
-        setEchoes(data);
+        if (!user) return;
+        try {
+            const { data, error } = await supabase
+                .from('echoes')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('recorded_at', { ascending: false });
+
+            if (data) setEchoes(data);
+        } catch (e) {
+            console.error(e);
+        }
     };
 
-    const renderItem = ({ item }: { item: Echo }) => (
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadEchoes();
+        setRefreshing(false);
+    };
+
+    const renderItem = ({ item }: { item: any }) => (
         <View style={styles.echoCard}>
             <View style={styles.iconContainer}>
                 <Feather
@@ -51,6 +70,12 @@ export default function VaultScreen() {
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyText}>No Echoes yet. Record your first one!</Text>
+                    </View>
+                }
             />
         </View>
     );
@@ -119,4 +144,13 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: colors.text.disabled,
     },
+    emptyState: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    emptyText: {
+        color: colors.text.secondary,
+        fontSize: 16,
+        textAlign: 'center',
+    }
 });
