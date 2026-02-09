@@ -29,7 +29,9 @@ export default function UnlockPage() {
             if (error) throw new Error(error)
 
             const stripe = await stripePromise
-            await stripe?.redirectToCheckout({ sessionId })
+            if (stripe) {
+                await (stripe as any).redirectToCheckout({ sessionId })
+            }
         } catch (err) {
             console.error(err)
             alert("Something went wrong with the checkout process.")
