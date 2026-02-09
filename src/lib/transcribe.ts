@@ -27,7 +27,7 @@ export async function transcribeEcho(echoId: string) {
         if (!Body) throw new Error("Audio body missing from R2")
 
         const audioBuffer = await Body.transformToByteArray()
-        const audioFile = new File([audioBuffer], 'audio.webm', { type: 'audio/webm' })
+        const audioFile = new File([audioBuffer] as any, 'audio.webm', { type: 'audio/webm' })
 
         // Transcribe with Whisper
         await db.echo.update({
