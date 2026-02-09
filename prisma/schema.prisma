@@ -1,0 +1,348 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  clerkId       String   @unique
+  email         String   @unique
+  fullName      String?
+  username      String?  @unique
+  avatarUrl     String?
+  birthDate     DateTime?
+  
+  // Subscription
+  subscriptionTier   SubscriptionTier @default(FREE)
+  subscriptionStatus String?          @default("inactive")
+  stripeCustomerId   String?          @unique
+  stripeSubscriptionId String?        @unique
+  subscriptionEndsAt DateTime?
+  
+  // Settings
+  timezone           String  @default("America/New_York")
+  emailNotifications Boolean @default(true)
+  weeklyPromptDay    String  @default("monday")
+  
+  // Relationships
+  echoes       Echo[]
+  collections  Collection[]
+  shares       Share[]
+  legacyContacts LegacyContact[]
+  aiSessions   AISession[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@index([clerkId])
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  FAMILY
+  LIFETIME
+}
+
+// ============================================
+// ECHOES (Core Content)
+// ============================================
+
+model Echo {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Audio
+  audioUrl         String
+  audioKey         String  // R2 object key
+  duration         Int     // seconds
+  fileSize         Int     // bytes
+  format           String  @default("mp3")
+  waveformData     Json?   // Waveform visualization data
+  
+  // Content
+  questionId       Int?
+  question         Question? @relation(fields: [questionId], references: [id])
+  customPrompt     String?   // If user wrote their own prompt
+  contextNotes     String?   // User's written context
+  transcription    String?   // AI-generated
+  transcriptionStatus String @default("pending") // pending, processing, completed, failed
+  
+  // Metadata
+  recordedAt       DateTime @default(now())
+  recordingLocation String? // "Toronto, ON" (optional)
+  mood             String?  // "reflective", "happy", "sad" (optional)
+  
+  // Organization
+  tags             String[] // ["family", "career", "grief"]
+  collectionId     String?
+  collection       Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  
+  // Unlock Logic
+  unlockType       UnlockType @default(IMMEDIATE)
+  unlockDate       DateTime?
+  unlockEvent      String?    // "death", "marriage", "child_18"
+  recipientEmail   String?    // For recipient-based unlocks
+  isLocked         Boolean    @default(false)
+  
+  // Visibility
+  isPublic         Boolean    @default(false)
+  isArchived       Boolean    @default(false)
+  
+  // Engagement
+  playCount        Int        @default(0)
+  lastPlayedAt     DateTime?
+  
+  // AI Analysis
+  aiSummary        String?    // AI-generated summary
+  emotionalTone    String?    // "nostalgic", "hopeful", etc.
+  themes           String[]   // AI-extracted themes
+  relatedEchoIds   String[]   // IDs of semantically similar Echoes
+  
+  // Relationships
+  shares           Share[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([collectionId])
+  @@index([isPublic])
+  @@index([unlockDate])
+  @@index([tags])
+}
+
+enum UnlockType {
+  IMMEDIATE
+  TIME_BASED
+  EVENT_BASED
+  RECIPIENT_BASED
+  CONDITIONAL
+}
+
+// ============================================
+// COLLECTIONS (Grouping Echoes)
+// ============================================
+
+model Collection {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Content
+  title       String
+  description String?
+  coverImage  String?   // Optional cover art
+  
+  // Unlock Logic (applied to all Echoes in collection)
+  unlockType       UnlockType @default(IMMEDIATE)
+  unlockDate       DateTime?
+  unlockEvent      String?
+  recipientEmail   String?
+  
+  // Visibility
+  isPublic    Boolean  @default(false)
+  
+  // Relationships
+  echoes      Echo[]
+  shares      Share[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([isPublic])
+}
+
+// ============================================
+// QUESTIONS (Prompts)
+// ============================================
+
+model Question {
+  id             Int      @id @default(autoincrement())
+  category       QuestionCategory
+  questionText   String
+  followUpPrompts String[] // AI suggestions after recording
+  difficulty     Int      @default(5) // 1-10 scale
+  isActive       Boolean  @default(true)
+  
+  // Sequencing
+  sequenceOrder  Int?     // For curated question paths
+  
+  // Usage stats
+  timesUsed      Int      @default(0)
+  avgRecordingTime Int?   // seconds
+  
+  // Relationships
+  echoes         Echo[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([category])
+}
+
+enum QuestionCategory {
+  IDENTITY
+  RELATIONSHIPS
+  LIFE_LESSONS
+  LEGACY
+  TIME_MEMORY
+  VALUES
+  CAREER
+  LOSS_GRIEF
+  JOY_CELEBRATION
+  WISDOM
+}
+
+// ============================================
+// SHARING
+// ============================================
+
+model Share {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // What's being shared
+  echoId      String?
+  echo        Echo?    @relation(fields: [echoId], references: [id], onDelete: Cascade)
+  collectionId String?
+  collection  Collection? @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  
+  // Share settings
+  shareToken  String   @unique @default(cuid())
+  password    String?  // Bcrypt hashed
+  expiresAt   DateTime?
+  maxPlays    Int?
+  currentPlays Int     @default(0)
+  
+  // Analytics
+  lastAccessedAt DateTime?
+  accessIPs      String[] // Track unique viewers
+  
+  createdAt DateTime @default(now())
+  
+  @@index([shareToken])
+  @@index([userId])
+}
+
+// ============================================
+// LEGACY PLANNING
+// ============================================
+
+model LegacyContact {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Contact info
+  name            String
+  email           String
+  relationship    String   // "spouse", "child", "friend"
+  
+  // Access rights
+  accessLevel     String   @default("VIEW_ONLY") // VIEW_ONLY, FULL_ACCESS
+  triggerEvent    String   // "death", "incapacitation"
+  notificationSent Boolean @default(false)
+  
+  // Verification
+  isVerified      Boolean  @default(false)
+  verificationToken String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([email])
+}
+
+// ============================================
+// AI SESSIONS (Interview Mode)
+// ============================================
+
+model AISession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Session metadata
+  questionId  Int?
+  topic       String?  // Free-form topic if not from question
+  
+  // Conversation
+  messages    Json     // Array of {role, content, timestamp}
+  
+  // Results
+  echoId      String?  // Final Echo created from this session
+  summary     String?  // AI-generated session summary
+  
+  // Status
+  status      String   @default("active") // active, completed, abandoned
+  
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  @@index([userId])
+  @@index([status])
+}
+
+// ============================================
+// ANALYTICS & USAGE
+// ============================================
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  // Activity details
+  activityType String  // "echo_recorded", "echo_played", "collection_created", etc.
+  metadata     Json?   // Flexible data storage
+  
+  // Context
+  ipAddress    String?
+  userAgent    String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([activityType])
+  @@index([createdAt])
+}
+
+// ============================================
+// WAITLIST (Pre-launch)
+// ============================================
+
+model WaitlistEntry {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  fullName    String?
+  referralCode String? @unique
+  referredBy  String?  // Another email
+  referralCount Int    @default(0)
+  
+  // Metadata
+  signupSource String? // "landing_page", "product_hunt", "instagram"
+  utmParams    Json?
+  
+  // Status
+  hasAccess   Boolean  @default(false)
+  invitedAt   DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([email])
+}

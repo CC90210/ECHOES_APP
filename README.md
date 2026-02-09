@@ -1,44 +1,36 @@
-# ECHOES - Development Setup
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Prerequisites
-- Node.js (v18+)
-- npm or yarn or bun
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (Mac) or Android Emulator (optional)
+## Getting Started
 
-## Installation
+First, run the development server:
 
-1. **Install Dependencies**
-   Since the automated setup could not complete due to missing Node environment, you must install dependencies manually:
-   ```bash
-   npm install
-   ```
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-2. **Start the App**
-   To run the development server:
-   ```bash
-   npx expo start
-   ```
-   - Press `i` for iOS Simulator
-   - Press `a` for Android Emulator
-   - Press `w` for Web Preview
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Project Structure
-- `src/screens`: Main application screens (Login, Home, Record, Vault)
-- `src/components`: Reusable UI components (Button, Cards)
-- `src/theme`: Design system (Colors, Typography)
-- `src/services`: Mock API and services (Supabase, S3 placeholders)
-- `supabase_schema.sql`: Database schema for Supabase
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Database Setup
-1. Create a new Supabase project.
-2. Go to the SQL Editor and run the contents of `supabase_schema.sql`.
-3. Update `src/services/api.ts` or create a real Supabase client when ready.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## MVP Status
-- [x] Project scaffolding
-- [x] Basic UI Shell
-- [x] Recording Interface (Mocked)
-- [x] Database Schema
-- [ ] Real S3 Integration (Pending credentials)
-- [ ] Real Supabase Auth (Pending credentials)
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
