@@ -2,18 +2,22 @@ import OpenAI from 'openai'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { db } from './db'
 
-const getOpenAI = () => new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'placeholder_for_build'
-})
+const getOpenAI = () => {
+    if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API Key missing")
+    return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
 
-const getS3 = () => new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID || 'placeholder',
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || 'placeholder',
-    },
-})
+const getS3 = () => {
+    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) throw new Error("R2 keys missing")
+    return new S3Client({
+        region: 'auto',
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+            accessKeyId: process.env.R2_ACCESS_KEY_ID,
+            secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        },
+    })
+}
 
 export async function transcribeEcho(echoId: string) {
     try {

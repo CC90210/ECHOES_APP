@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { auth } from '@clerk/nextjs/server'
 
-const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
-    apiVersion: '2025-01-27.acacia' as any,
-})
+const getStripe = () => {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe Secret Key missing")
+    return new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: '2025-01-27.acacia' as any,
+    })
+}
 
 export async function POST(req: NextRequest) {
     const { userId } = await auth()

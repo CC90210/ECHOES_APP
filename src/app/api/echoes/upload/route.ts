@@ -5,14 +5,19 @@ import { db } from '@/lib/db'
 import { auth } from '@clerk/nextjs/server'
 import { queueTranscription } from '@/lib/transcribe'
 
-const getS3 = () => new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID || 'placeholder',
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || 'placeholder',
-    },
-})
+const getS3 = () => {
+    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+        throw new Error("R2 Storage misconfigured: Missing keys")
+    }
+    return new S3Client({
+        region: 'auto',
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+            accessKeyId: process.env.R2_ACCESS_KEY_ID,
+            secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        },
+    })
+}
 
 export async function POST(req: NextRequest) {
     try {
