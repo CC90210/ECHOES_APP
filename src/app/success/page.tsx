@@ -2,10 +2,10 @@
 
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, ArrowRight, Sparkles, Mic, LayoutDashboard } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { CheckCircle2, ArrowRight, Sparkles, Mic, LayoutDashboard, Loader2 } from 'lucide-react'
+import { useEffect, useState, Suspense } from 'react'
 
-export default function SuccessPage() {
+function SuccessContent() {
     const searchParams = useSearchParams()
     const echoId = searchParams.get('echo_id')
     const sessionId = searchParams.get('session_id')
@@ -61,5 +61,17 @@ export default function SuccessPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function SuccessPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+                <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+        }>
+            <SuccessContent />
+        </Suspense>
     )
 }
