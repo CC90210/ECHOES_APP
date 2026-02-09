@@ -33,7 +33,8 @@ const tiers = [
             'Advanced AI Deep Insights',
             'Priority Transcription',
             'Download audio files',
-            'Early access to Voice Cloning'
+            'Early access to Voice Cloning',
+            'Voice cloning & AI recreation (coming soon)'
         ],
         buttonText: 'Start Premium',
         priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM!,
@@ -124,6 +125,48 @@ export default function PricingPage() {
                             )}
                         </div>
                     ))}
+                    {/* Immortality Tier */}
+                    <div className="md:col-span-2 max-w-2xl mx-auto mt-20 w-full">
+                        <div className="relative bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur border-2 border-purple-500 rounded-[2.5rem] p-12 overflow-hidden">
+                            <div className="absolute top-0 right-0 left-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-black uppercase tracking-[0.2em] py-3 text-center">
+                                Coming Soon — Join Waitlist
+                            </div>
+
+                            <div className="text-center mb-10 mt-6">
+                                <h3 className="text-3xl font-black text-white mb-2">Digital Immortality</h3>
+                                <div className="flex items-center justify-center gap-2 mb-4">
+                                    <span className="text-5xl font-black text-white">$499</span>
+                                    <span className="text-gray-400 text-lg font-bold">/one-time</span>
+                                </div>
+                                <p className="text-gray-300 max-w-md mx-auto">Train a custom AI model on your voice and personality. Let your great-grandchildren have a conversation with you.</p>
+                            </div>
+
+                            <ul className="space-y-4 mb-10 max-w-md mx-auto">
+                                {[
+                                    'Everything in Premium',
+                                    'Custom AI voice model trained on your Echoes',
+                                    'Generate new messages in your voice (100/mo)',
+                                    'Conversational AI trained on your beliefs & values',
+                                    'Your family can "talk" to you after you\'re gone'
+                                ].map((feature) => (
+                                    <li key={feature} className="flex items-center gap-4 text-gray-300 font-medium">
+                                        <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
+                                            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                                        </div>
+                                        {feature}
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <button className="w-full py-5 bg-white/5 text-white/50 border border-white/10 font-black rounded-full cursor-not-allowed hover:bg-white/10 transition">
+                                Join Waitlist
+                            </button>
+
+                            <p className="text-center text-xs text-gray-500 mt-6 uppercase tracking-widest font-bold">
+                                Every Echo you create now is training data
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Feature Comparison */}

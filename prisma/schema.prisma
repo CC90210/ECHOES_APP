@@ -40,6 +40,7 @@ model User {
   shares       Share[]
   legacyContacts LegacyContact[]
   aiSessions   AISession[]
+  voiceModels  VoiceModel[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,6 +111,7 @@ model Echo {
   emotionalTone    String?    // "nostalgic", "hopeful", etc.
   themes           String[]   // AI-extracted themes
   relatedEchoIds   String[]   // IDs of semantically similar Echoes
+  voice_profile_data Json?    // Voice metrics, pitch, cadence data for cloning
   
   // Relationships
   shares           Share[]
@@ -297,6 +299,39 @@ model AISession {
   
   @@index([userId])
   @@index([status])
+}
+
+// ============================================
+// VOICE MODELS (Digital Immortality)
+// ============================================
+
+model VoiceModel {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Voice characteristics
+  voice_data        Json      // Metrics, patterns, style analysis
+  audio_samples     String[]  // Array of Echo IDs used for training
+  
+  // External Provider (ElevenLabs/OpenAI)
+  external_voice_id String?
+  voice_provider    String?   // 'elevenlabs' or 'openai'
+  
+  // Training status
+  training_status   String    @default("pending") // pending, training, ready, failed
+  quality_score     Float?    // 0-1 score of voice similarity
+  
+  // Usage tracking
+  generations_count Int       @default(0)
+  last_used_at      DateTime?
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([training_status])
 }
 
 // ============================================

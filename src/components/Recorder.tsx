@@ -13,6 +13,7 @@ export default function Recorder() {
     const [isRecording, setIsRecording] = useState(false)
     const [duration, setDuration] = useState(0)
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+    const [error, setError] = useState<string | null>(null)
 
     const waveformRef = useRef<HTMLDivElement>(null)
     const wavesurfer = useRef<WaveSurfer | null>(null)
@@ -48,13 +49,14 @@ export default function Recorder() {
 
     const startRecording = async () => {
         try {
+            setError(null)
             await recordPlugin.current?.startRecording()
             setIsRecording(true)
             setDuration(0)
             timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
         } catch (err) {
             console.error("Mic access denied", err)
-            alert("Microphone access is required to record an Echo.")
+            setError("Microphone access is required to record your Echo.")
         }
     }
 
@@ -65,6 +67,7 @@ export default function Recorder() {
     const handleSave = async () => {
         if (!audioBlob) return
         setStep('processing')
+        setError(null)
         try {
             const formData = new FormData()
             formData.append('audio', audioBlob, 'echo.webm')
@@ -72,12 +75,15 @@ export default function Recorder() {
                 method: 'POST',
                 body: formData,
             })
-            if (!res.ok) throw new Error("Upload failed")
+            if (!res.ok) {
+                const data = await res.json()
+                throw new Error(data.error || "Upload failed")
+            }
             const { echoId } = await res.json()
             router.push(`/unlock/${echoId}`)
-        } catch (err) {
+        } catch (err: any) {
             console.error(err)
-            alert("Failed to save your Echo. Please try again.")
+            setError(err.message || "Failed to save your Echo. Please try again.")
             setStep('record')
         }
     }
@@ -105,6 +111,15 @@ export default function Recorder() {
             <h2 className="text-3xl font-bold text-white mb-8 text-center">
                 Speak from your heart
             </h2>
+
+            {error && (
+                <div className="bg-red-500/10 border border-red-500/50 rounded-2xl p-4 mb-6 flex items-start justify-between gap-4">
+                    <p className="text-red-400 text-sm font-medium">{error}</p>
+                    <button onClick={() => setError(null)} className="text-red-400/50 hover:text-red-400">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
 
             <div className="bg-black/40 rounded-3xl p-8 mb-8 border border-white/5">
                 <div ref={waveformRef} className="w-full" />

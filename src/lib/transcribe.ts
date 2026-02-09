@@ -66,46 +66,79 @@ export async function transcribeEcho(echoId: string) {
 }
 
 async function analyzeEcho(echoId: string, transcription: string) {
-    const analysis = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-            {
-                role: 'system',
-                content: 'Analyze this voice recording transcription for a legacy platform called ECHOES. Provide: 1) Primary emotional tone (one word), 2) 3-5 key themes (as a list), 3) A 2-sentence summary that captures the essence of the message.',
+    try {
+        console.log(`Analyzing echo: ${echoId}`)
+        const analysis = await getOpenAI().chat.completions.create({
+            model: 'gpt-4o',
+            messages: [
+                {
+                    role: 'system',
+                    content: `You are analyzing a voice recording transcription for an intergenerational legacy platform called ECHOES.
+          
+Provide analysis in this exact JSON format:
+{
+  "emotionalTone": "single word describing primary emotion (e.g., reflective, hopeful, nostalgic, anxious)",
+  "themes": ["theme1", "theme2", "theme3"],
+  "summary": "2-3 sentence summary of the core message",
+  "insights": ["key insight 1", "key insight 2", "key insight 3"]
+}`,
+                },
+                {
+                    role: 'user',
+                    content: `Transcription: "${transcription}"`,
+                },
+            ],
+            response_format: { type: 'json_object' },
+        })
+
+        const result = JSON.parse(analysis.choices[0].message.content || '{}')
+
+        await db.echo.update({
+            where: { id: echoId },
+            data: {
+                aiSummary: result.summary || '',
+                emotionalTone: result.emotionalTone || 'Reflective',
+                themes: result.themes || ['legacy'],
             },
-            {
-                role: 'user',
-                content: transcription,
-            },
-        ],
-    })
+        })
 
-    const result = analysis.choices[0].message.content || ""
-
-    // Simple extraction (Production would use structured output)
-    const toneMatch = result.match(/Emotional tone:?\s*(\w+)/i)
-    const tone = toneMatch ? toneMatch[1] : 'Reflective'
-
-    const themesMatch = result.match(/Themes:?\s*([\s\S]*?)(?=\n\n|\nSummary|$)/i)
-    const themes = themesMatch ? themesMatch[1].split(',').map((t: string) => t.trim().replace(/^-\s*/, '')) : ['legacy']
-
-    const summaryMatch = result.match(/Summary:?\s*([\s\S]*?)$/i)
-    const summary = summaryMatch ? summaryMatch[1].trim() : result.slice(0, 500)
-
-    await db.echo.update({
-        where: { id: echoId },
-        data: {
-            aiSummary: summary,
-            emotionalTone: tone,
-            themes: themes.slice(0, 5),
-        },
-    })
+        // Create voice profile metrics for Digital Immortality
+        await createVoiceProfile(echoId, transcription)
+    } catch (error) {
+        console.error("Analysis Error:", error)
+    }
 }
 
-// Simple queue (use Upstash QStash in production)
+async function createVoiceProfile(echoId: string, transcription: string) {
+    try {
+        const words = transcription.split(/\s+/).filter(w => w.length > 0)
+        if (words.length === 0) return
+
+        const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length
+        const sentences = transcription.split(/[.!?]+/).filter(s => s.trim().length > 0)
+        const avgSentenceLength = words.length / (sentences.length || 1)
+
+        const voiceMetrics = {
+            avgWordLength: Number(avgWordLength.toFixed(2)),
+            avgSentenceLength: Number(avgSentenceLength.toFixed(2)),
+            vocabularyComplexity: avgWordLength > 5 ? 'high' : 'moderate',
+            speakingStyle: avgSentenceLength > 15 ? 'elaborate' : 'concise',
+            timestamp: new Date().toISOString()
+        }
+
+        await db.echo.update({
+            where: { id: echoId },
+            data: {
+                voice_profile_data: voiceMetrics
+            }
+        })
+    } catch (err) {
+        console.error("Voice Profile Error:", err)
+    }
+}
+
+// Simple queue (Background execution)
 export async function queueTranscription(echoId: string) {
-    // For MVP launch, we call it directly in background (Next.js edges or serverless handles this if we don't await)
-    // In production Vercel, this might time out, so QStash is better.
     console.log(`Queuing transcription for Echo ${echoId}`)
     transcribeEcho(echoId).catch(err => console.error("Async Transcription failed", err))
 }
