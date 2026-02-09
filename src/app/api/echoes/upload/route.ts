@@ -5,12 +5,12 @@ import { db } from '@/lib/db'
 import { auth } from '@clerk/nextjs/server'
 import { queueTranscription } from '@/lib/transcribe'
 
-const s3 = new S3Client({
+const getS3 = () => new S3Client({
     region: 'auto',
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID || 'placeholder',
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || 'placeholder',
     },
 })
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         const fileName = `echoes/${uuidv4()}.webm`
 
         // Upload to R2
-        await s3.send(new PutObjectCommand({
+        await getS3().send(new PutObjectCommand({
             Bucket: process.env.R2_BUCKET_NAME!,
             Key: fileName,
             Body: buffer,

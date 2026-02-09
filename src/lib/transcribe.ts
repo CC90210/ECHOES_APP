@@ -2,14 +2,16 @@ import OpenAI from 'openai'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { db } from './db'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const getOpenAI = () => new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || 'placeholder_for_build'
+})
 
-const s3 = new S3Client({
+const getS3 = () => new S3Client({
     region: 'auto',
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID || 'placeholder',
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || 'placeholder',
     },
 })
 
@@ -19,7 +21,7 @@ export async function transcribeEcho(echoId: string) {
         if (!echo) throw new Error('Echo not found')
 
         // Download audio from R2
-        const { Body } = await s3.send(new GetObjectCommand({
+        const { Body } = await getS3().send(new GetObjectCommand({
             Bucket: process.env.R2_BUCKET_NAME!,
             Key: echo.audioKey,
         }))
@@ -35,7 +37,7 @@ export async function transcribeEcho(echoId: string) {
             data: { transcriptionStatus: 'processing' },
         })
 
-        const transcription = await openai.audio.transcriptions.create({
+        const transcription = await getOpenAI().audio.transcriptions.create({
             file: audioFile,
             model: 'whisper-1',
         })
@@ -60,7 +62,7 @@ export async function transcribeEcho(echoId: string) {
 }
 
 async function analyzeEcho(echoId: string, transcription: string) {
-    const analysis = await openai.chat.completions.create({
+    const analysis = await getOpenAI().chat.completions.create({
         model: 'gpt-4o',
         messages: [
             {
@@ -81,7 +83,7 @@ async function analyzeEcho(echoId: string, transcription: string) {
     const tone = toneMatch ? toneMatch[1] : 'Reflective'
 
     const themesMatch = result.match(/Themes:?\s*([\s\S]*?)(?=\n\n|\nSummary|$)/i)
-    const themes = themesMatch ? themesMatch[1].split(',').map(t => t.trim().replace(/^-\s*/, '')) : ['legacy']
+    const themes = themesMatch ? themesMatch[1].split(',').map((t: string) => t.trim().replace(/^-\s*/, '')) : ['legacy']
 
     const summaryMatch = result.match(/Summary:?\s*([\s\S]*?)$/i)
     const summary = summaryMatch ? summaryMatch[1].trim() : result.slice(0, 500)
